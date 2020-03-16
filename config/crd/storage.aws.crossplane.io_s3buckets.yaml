@@ -12,10 +12,10 @@ spec:
   - JSONPath: .spec.classRef.name
     name: CLASS
     type: string
-  - JSONPath: .spec.cannedACL
+  - JSONPath: .spec.forProvider.cannedACL
     name: PREDEFINED-ACL
     type: string
-  - JSONPath: .spec.localPermission
+  - JSONPath: .spec.forProvider.localPermission
     name: LOCAL-PERMISSION
     type: string
   - JSONPath: .metadata.creationTimestamp
@@ -151,6 +151,9 @@ spec:
                 the Kubernetes UID of this S3Bucket. Omit this field to use the UID
                 alone as the name.
               type: string
+            policy:
+              description: Poicy JSON of the bucket
+              type: string
             providerRef:
               description: ProviderReference specifies the provider that will be used
                 to create, observe, update, and delete this managed resource.
@@ -235,56 +238,61 @@ spec:
         status:
           description: S3BucketStatus defines the observed state of S3Bucket
           properties:
-            bindingPhase:
-              description: Phase represents the binding phase of a managed resource
-                or claim. Unbindable resources cannot be bound, typically because
-                they are currently unavailable, or still being created. Unbound resource
-                are available for binding, and Bound resources have successfully bound
-                to another resource.
-              enum:
-              - Unbindable
-              - Unbound
-              - Bound
-              - Released
-              type: string
-            conditions:
-              description: Conditions of the resource.
-              items:
-                description: A Condition that may apply to a resource.
-                properties:
-                  lastTransitionTime:
-                    description: LastTransitionTime is the last time this condition
-                      transitioned from one status to another.
-                    format: date-time
-                    type: string
-                  message:
-                    description: A Message containing details about this condition's
-                      last transition from one status to another, if any.
-                    type: string
-                  reason:
-                    description: A Reason for this condition's last transition from
-                      one status to another.
-                    type: string
-                  status:
-                    description: Status of this condition; is it currently True, False,
-                      or Unknown?
-                    type: string
-                  type:
-                    description: Type of this condition. At most one of each condition
-                      type may apply to a resource at any point in time.
-                    type: string
-                required:
-                - lastTransitionTime
-                - reason
-                - status
-                - type
-                type: object
-              type: array
             iamUsername:
               description: IAMUsername is the name of an IAM user that is automatically
                 created and granted access to this bucket by Crossplane at bucket
                 creation time.
               type: string
+            inline:
+              description: ResourceStatus represents the observed state of a managed
+                resource.
+              properties:
+                bindingPhase:
+                  description: Phase represents the binding phase of a managed resource
+                    or claim. Unbindable resources cannot be bound, typically because
+                    they are currently unavailable, or still being created. Unbound
+                    resource are available for binding, and Bound resources have successfully
+                    bound to another resource.
+                  enum:
+                  - Unbindable
+                  - Unbound
+                  - Bound
+                  - Released
+                  type: string
+                conditions:
+                  description: Conditions of the resource.
+                  items:
+                    description: A Condition that may apply to a resource.
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time this condition
+                          transitioned from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: A Message containing details about this condition's
+                          last transition from one status to another, if any.
+                        type: string
+                      reason:
+                        description: A Reason for this condition's last transition
+                          from one status to another.
+                        type: string
+                      status:
+                        description: Status of this condition; is it currently True,
+                          False, or Unknown?
+                        type: string
+                      type:
+                        description: Type of this condition. At most one of each condition
+                          type may apply to a resource at any point in time.
+                        type: string
+                    required:
+                    - lastTransitionTime
+                    - reason
+                    - status
+                    - type
+                    type: object
+                  type: array
+              type: object
             lastLocalPermission:
               description: LastLocalPermission is the most recent local permission
                 that was set for this bucket.
@@ -296,13 +304,15 @@ spec:
             providerID:
               description: ProviderID is the AWS identifier for this bucket.
               type: string
+          required:
+          - inline
           type: object
       required:
       - spec
       type: object
-  version: v1alpha3
+  version: v1beta1
   versions:
-  - name: v1alpha3
+  - name: v1beta1
     served: true
     storage: true
 status:

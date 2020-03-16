@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1beta1
 
 import (
 	"fmt"
@@ -55,18 +55,20 @@ type S3BucketParameters struct {
 	// provisioning.
 	// +kubebuilder:validation:Enum=Read;Write;ReadWrite
 	LocalPermission *storagev1alpha1.LocalPermissionType `json:"localPermission"`
+
+	// Poicy JSON of the bucket
+	// +optional
+	Policy *string `json:"policy"`
 }
 
 // S3BucketSpec defines the desired state of S3Bucket
 type S3BucketSpec struct {
 	runtimev1alpha1.ResourceSpec `json:",inline"`
-	S3BucketParameters           `json:",inline"`
+	ForProvider                  S3BucketParameters `json:",forProvider"`
 }
 
-// S3BucketStatus defines the observed state of S3Bucket
-type S3BucketStatus struct {
-	runtimev1alpha1.ResourceStatus `json:",inline"`
-
+// S3BucketObservation defines the observed state of S3Bucket.
+type S3BucketObservation struct {
 	// ProviderID is the AWS identifier for this bucket.
 	ProviderID string `json:"providerID,omitempty"`
 
@@ -83,12 +85,17 @@ type S3BucketStatus struct {
 	LastLocalPermission storagev1alpha1.LocalPermissionType `json:"lastLocalPermission,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+// S3BucketStatus defines the observed state of S3Bucket
+type S3BucketStatus struct {
+	runtimev1alpha1.ResourceStatus `json:"inline"`
+	AtProvider                     S3BucketObservation `json:",atProvider"`
+}
 
+// +kubebuilder:object:root=true
 // An S3Bucket is a managed resource that represents an AWS S3 Bucket.
 // +kubebuilder:printcolumn:name="CLASS",type="string",JSONPath=".spec.classRef.name"
-// +kubebuilder:printcolumn:name="PREDEFINED-ACL",type="string",JSONPath=".spec.cannedACL"
-// +kubebuilder:printcolumn:name="LOCAL-PERMISSION",type="string",JSONPath=".spec.localPermission"
+// +kubebuilder:printcolumn:name="PREDEFINED-ACL",type="string",JSONPath=".spec.forProvider.cannedACL"
+// +kubebuilder:printcolumn:name="LOCAL-PERMISSION",type="string",JSONPath=".spec.forProvider.localPermission"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster
 type S3Bucket struct {
@@ -112,7 +119,8 @@ type S3BucketList struct {
 // provisioned S3Bucket.
 type S3BucketClassSpecTemplate struct {
 	runtimev1alpha1.ClassSpecTemplate `json:",inline"`
-	S3BucketParameters                `json:",inline"`
+
+	ForProvider S3BucketParameters `json:",forProvider"`
 }
 
 // +kubebuilder:object:root=true
@@ -156,13 +164,13 @@ type S3BucketClassList struct {
 //   4. NameFormat = "foo-%s", BucketName = "foo-test-uid"
 //   5. NameFormat = "foo-%s-bar-%s", BucketName = "foo-test-uid-bar-%!s(MISSING)"
 func (b *S3Bucket) GetBucketName() string {
-	if b.Spec.NameFormat == "" {
+	if b.Spec.ForProvider.NameFormat == "" {
 		return string(b.GetUID())
 	}
-	if strings.Contains(b.Spec.NameFormat, "%s") {
-		return fmt.Sprintf(b.Spec.NameFormat, string(b.GetUID()))
+	if strings.Contains(b.Spec.ForProvider.NameFormat, "%s") {
+		return fmt.Sprintf(b.Spec.ForProvider.NameFormat, string(b.GetUID()))
 	}
-	return b.Spec.NameFormat
+	return b.Spec.ForProvider.NameFormat
 }
 
 // SetUserPolicyVersion specifies this bucket's policy version.
@@ -171,8 +179,8 @@ func (b *S3Bucket) SetUserPolicyVersion(policyVersion string) error {
 	if err != nil {
 		return err
 	}
-	b.Status.LastUserPolicyVersion = policyInt
-	b.Status.LastLocalPermission = *b.Spec.LocalPermission
+	b.Status.AtProvider.LastUserPolicyVersion = policyInt
+	b.Status.AtProvider.LastLocalPermission = *b.Spec.ForProvider.LocalPermission
 
 	return nil
 }
@@ -180,14 +188,14 @@ func (b *S3Bucket) SetUserPolicyVersion(policyVersion string) error {
 // HasPolicyChanged returns true if the bucket's policy is older than the
 // supplied version.
 func (b *S3Bucket) HasPolicyChanged(policyVersion string) (bool, error) {
-	if *b.Spec.LocalPermission != b.Status.LastLocalPermission {
+	if *b.Spec.ForProvider.LocalPermission != b.Status.AtProvider.LastLocalPermission {
 		return true, nil
 	}
 	policyInt, err := strconv.Atoi(policyVersion[1:])
 	if err != nil {
 		return false, err
 	}
-	if b.Status.LastUserPolicyVersion != policyInt && b.Status.LastUserPolicyVersion < policyInt {
+	if b.Status.AtProvider.LastUserPolicyVersion != policyInt && b.Status.AtProvider.LastUserPolicyVersion < policyInt {
 		return true, nil
 	}
 
